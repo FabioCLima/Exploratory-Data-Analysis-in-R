@@ -1,0 +1,302 @@
+---
+title: "Projeto 1 EDA - Pisa"
+author: "Fabio Carvalho Lima"
+date: "10/11/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(digits = 4)
+```
+```{r bibliotecas, include=FALSE}
+
+library(tidyverse) 
+library(readxl)
+library(ggthemes)
+library(plotly)
+library(Hmisc)
+library(corrplot)
+library(psych)
+```
+
+Exploratory Data Analysis (**EDA**) - é o processo de analisar e visualizar o dado para ganhar um melhor entendimento do dado e insights. Há vários estágios que envolvem o processo de EDA, mas o mais comuns que são executados por um analista de dados são:
+
+
+1. Importar o dado.
+2. Limpeza do dado.
+3. Processamento e organização.
+4. Visualização do dado.
+
+Para este primeiro projeto de EDA, iremos executar todos os processos descritos anteriormente e para ser capaz de fazer todos os passos, iremos usar algumas ferramentas do R, tais como:
+
+1. biblioteca - Tidyverse para tornar o dado em formato tidy - data frames ou tibbles.
+
+2. Algumas funções básicas para manipular os dados como , strplit (), cbind(), matrix (), dentre outras.
+
+3. biblioteca - corrplot para fazer plots de correlação.
+
+O conjunto de dados que será usado será o Pisa (*Programa Internacional de Avaliação de Alunos*) é uma rede mundial de desempenho escolar, realizado pela primeira vez em 2000 e repetido a cada 3 anos. Usaremos este dataset para fazer
+o EDA. Utilizaremos os dados do ano 2013-2015.
+
+
+Para executar os passos 1-->3 utilizaremos os seguintes passos:
+
+## Importação, limpeza e organização dos dados.
+
+
+```{r reading-file, include=TRUE}
+
+dataframe.raw <- read.csv(file = "./data/Pisa_MeanPerformance_2013_2015.csv", fileEncoding = "UTF-8-BOM", na.strings = '..', stringsAsFactors = FALSE)
+head(dataframe.raw)
+```
+
+Para limpar o conjunto de dados precisamos organizar as informações, o termo específico para esse processo é "data wrangling". Ou para ser mais específico deixar os *dados Tidy* (dados arrumados). As ferramentas que utilizaremos para limpar e organizar os dados pertencem ao **tidyr**, um pacote que fornece diversas ferramentas para ajudar-nos a arrumar os dados bagunçados. O **tidyr** é um membro do núcleo do tidyverse.
+
+a. Cada coluna no dataset deve corresponder a um único país. Podemos ver na varíavel **$ Country. Name** que estão nas linhas. Para executar esse passo devemos vamos utilizar a função *spread(key = Series.Code, value = X2015..YR2015.)*
+
+b. Por inspeção do dado importado vemos que os há inúmeras colunas com todos as observações sem nenhuma informação *NAs*. Aqui manteremos as colunas e linhas com informação relevante apenas, usaremos a função *drop_na()* - eliminar *NAs* e faremos ao mesmo tempo um subset dos dados.
+
+c. Renomear a coluna **Series Code** para um nome de melhor entendimento através da função *rename()*.
+
+Podemos fazer todas operações anteriormente descritas encadeadas com o uso do pipe.
+
+```{r tidy-data, include=FALSE}
+
+pisa2015 <- dataframe.raw[1:1161, c(1, 4, 7)] %>%
+             spread(key = Series.Code, value = X2015..YR2015.) %>%
+             rename(Maths = LO.PISA.MAT,                        
+                Maths.F = LO.PISA.MAT.FE,
+                Maths.M = LO.PISA.MAT.MA,
+                Reading = LO.PISA.REA,
+                Reading.F = LO.PISA.REA.FE,
+                Reading.M = LO.PISA.REA.MA,
+                Science = LO.PISA.SCI,
+                Science.F = LO.PISA.SCI.FE,
+                Science.M = LO.PISA.SCI.MA
+                                     ) %>%
+             drop_na()
+head(pisa2015)
+save(pisa2015, file = "rda/pisa2015.rda")
+```
+
+Estando os dados em formato tidy, agora podemos partir para a visualização dos dados.
+
+## Visualização
+
+1. Barplot - Ranking das notas de matemática por países
+
+a. Ranking das notas de matemática:
+
+
+```{r barplot-matematica, echo=FALSE, fig.align='center', fig.cap='Notas de matemática', out.height="80%", out.width="80%"}
+
+
+pisa2015 %>% 
+  ggplot(aes(x = reorder(Country.Name, Maths), y = Maths)) +
+  geom_bar(stat = 'identity',aes(fill = Maths)) +
+  coord_flip() +
+  scale_fill_gradient(name = "Maths Score Level") +
+  labs(title = 'Ranking of Countries by Maths Score',
+  y = 'Score', x = 'Countries') + 
+  geom_hline(yintercept = mean(pisa2015$Maths),size = 1.5, color =    'red') + theme_grey()
+```
+
+b. Ranking das notas de ciências:
+
+
+```{r barplot-science, echo=FALSE, fig.align='center', fig.cap='Notas de ciências', out.height="80%", out.width="80%"}
+
+pisa2015 %>% 
+  ggplot(aes(x = reorder(Country.Name, Science), y = Science)) +
+  geom_bar(stat = 'identity',aes(fill = Science)) +
+  coord_flip() +
+  scale_fill_gradient(name = "Science Score Level") +
+  labs(title = 'Ranking of Countries by Science Score',
+  y = 'Score', x = 'Countries') + 
+  geom_hline(yintercept = mean(pisa2015$Science),size = 1.5, color = 'red') + 
+  theme_grey()
+```
+
+c. Ranking das notas de leitura:
+
+
+```{r barplot-reading, fig.align='center', fig.cap='Notas de leitura', out.height="80%", out.width="80%"}
+
+pisa2015 %>% 
+  ggplot(aes(x = reorder(Country.Name, Reading), y = Reading)) +
+  geom_bar(stat = 'identity',aes(fill = Reading)) +
+  coord_flip() +
+  scale_fill_gradient(name = "Reading Score Level") +
+  labs(title = 'Ranking of Countries by Reading Score',
+  y = 'Score', x = 'Countries') + 
+  geom_hline(yintercept = mean(pisa2015$Reading),size = 1.5, color = 'red') + 
+  theme_gray()
+```
+
+Para criar boxplots precisaremos trabalhar o data frame **pisa2015**, ele está em formato que nos impede de plotar as informações em um boxplot, que pede como entrada um data frame, com uma coluna x e outra y.
+
+```{r pisa2015-long, echo=FALSE}
+
+# select relevant columns
+pisaLong <- pisa2015[,c(1,3,4,6,7,9,10)] %>%    
+  pivot_longer(c(2,3,4,5,6,7),names_to = 'Score')
+save(pisaLong, file = "rda/pisaLong.rda")
+```
+
+2. Boxplots
+
+```{r boxplots, echo=FALSE, fig.align='center', fig.cap='Boxplots das notas', out.height="80%", out.width="80%"}
+
+pisaLong %>%
+  ggplot(aes(x = Score,y = value, color = Score)) + 
+  geom_boxplot() +
+  scale_color_brewer(palette = "Dark2") + 
+  geom_jitter(shape = 16, position = position_jitter(0.2)) +
+  labs(title = 'Notas dos homens e mulheres por países e disciplinas',
+       y = 'Notas', x = 'Tipos de Teste') 
+```
+
+No gráfico acima podemos separar as disciplinas e os gêneros, para isso vamos usar a função **strsplit()** - separa os elementos de vetor de caracter x, em substrings que separadas de acordo com um separador.
+
+```{r split-score}
+
+S <- numeric(408)     # create an empty vector
+for (i in 1:length(pisaLong$Score)) {
+  S[i] <- strsplit(pisaLong$Score[i],".",fixed = TRUE)
+}
+```
+
+Agora temos uma lista com 408 componentes, cada um contém 2 sub-componentes, "disciplina: Science" e "Gender", vamos chamar esse data frame de df_S.
+
+```{r dfS, echo=FALSE}
+
+df_S <- S %>%
+        unlist() %>% matrix(ncol = 2, byrow = TRUE) %>% 
+        as.data.frame(stringsAsFactors = FALSE)
+
+colnames(df_S) <- c("Subject", "Gender")
+df_S$Gender <- factor(df_S$Gender)
+```
+Agora podemos combinar os data frames **pisaLong** e **df_S** e nomear o resultado como **pisaWide**, usando a função *cbind()* que funciona para vetores, matrizes ou data frames.
+
+```{r pisa-wide, echo=FALSE}
+
+pisaWide <- cbind(pisaLong, df_S)
+colnames(pisaWide) = c("País","Score","Nota","Subject","Gender")
+pisaWide$Score = NULL # essa coluna score ficou redundante
+save(pisaWide, file = "rda/pisaWide.rda")
+```
+
+Agora temos um data frame mais organizado e informativo. Agora podemos criar múltiplos gráficos, utilizando a função **face_wrap()** ou **face_grid**.
+
+
+```{r new-boxplot, echo=FALSE, fig.align='center', fig.cap='Boxplots das notas separadas por gênero', out.height="80%", out.width="80%"}
+
+pisaWide %>%
+  ggplot(aes(x = Subject, y = Nota, fill = Subject)) +
+  geom_boxplot() +
+  scale_fill_brewer(palette = "Dark2") +
+  geom_jitter(shape = 16, position = position_jitter(0.2)) +
+  labs(x = "Testes",title = "Notas separadas por gênero - mulheres e homens") +
+  facet_grid(.~ Gender)
+```
+
+Vamos gerar um outro gráfico criando as facetas por teste (Math, Science and Reading).
+
+Olhando os gráficos acima, já podemos ter algum insight sobre como os homens e mulheres que participaram desta avaliação, se saíram nas provas, do boxplot acima vemos que homens só saíram melhores com uma vantagem que pode ser considerada pequena em matemática e ciências, já na parte de leitura/interpretação as mulheres se saíram muito melhores do que os homens. Contudo, não podemos concluir que a situação geral é essa, olhando apenas o boxplot. Para tirar confirmar essa hipótese ou refutar, vamos estudar os dados com outras ferramentas para termos outros insights sobre este dataset.
+
+Como vamos comparar a performance entre os homens e mulheres em cada teste (*matemática, ciências e leitura*) para todos os países participantes, precisaremos calcular a diferença percentual para cada tema, entre os homens e mulheres e depois então plotar o gráfico para analisarmos.
+
+```{r pisa2015-medias, include=FALSE}
+
+# calculando as médias ponderadas entre os homens e mulheres
+# para entre todos os países 
+
+pisa2015 <- pisa2015 %>%
+         mutate(Maths.Dif = ((Maths.M - Maths.F)/Maths.F)*100,
+         Reading.Dif = ((Reading.M - Reading.F)/Reading.F)*100,
+         Science.Dif = ((Science.M - Science.F)/Science.F)*100,
+         Total.Score = Maths + Reading + Science,
+         Avg.Dif = (Maths.Dif + Reading.Dif + Science.Dif)/3)
+```
+
+
+Vamos agora plotar as notas de matemática considerando essa nova informação que calculamos anteriormente.
+
+
+
+```{r new-grafico-barra-maths, echo=FALSE, fig.align='center', fig.cap='notas e diferenças percentuais', out.height="80%", out.width="80%"}
+
+pisa2015 %>% ggplot(aes(x = reorder(Country.Name, Maths.Dif), y =              Maths.Dif)) +
+             geom_bar(stat = "identity", aes(fill = Maths.Dif)) +
+             coord_flip() +
+             theme_gray() +
+             geom_hline(yintercept = mean(pisa2015$Maths.Dif),                 size = 1.5, color = "red") +
+             scale_fill_gradient(name = "% nível de diferença") +
+  labs(title = "Homens são melhores em matemática?", x = "", y = "% diferença a partir das mulheres")
+```
+
+
+Podemos tirar alguns insights do plot anterior aqui:
+
+* Em geral, os homens saíram melhor do que as mulheres em matemática, na maioria dos países, podemos concluir que os homens tiraram notas melhores do que as mulheres.
+
+* Interessamente, em Singapura e Hongkong homens e mulheres se saíram igualmente bem, podemos checar isso no gráfico, onde a diferença nas notas em torno de zero em cada dos países citados. Isto é um insight interessante para os governadores desses locais, porque nós não queremos grandes diferenças nas perfomances entre homens e mulheres em educação.
+Já vimos existe uma grande nas notas dos testes de leitura, com clara superioridade das mulheres. Vamos então checar as notas de ciências utilizando a mesma metodologia que fizemos no gráfico anterior das notas de matemática.
+
+
+```{r new-grafico-barra-science, echo=FALSE, fig.align='center', fig.cap='Notas e diferenças percentuais das notas em ciências', out.height="80%", out.width="80%"}
+
+pisa2015 %>% ggplot(aes(x = reorder(Country.Name, Science.Dif), y = Science.Dif)) +
+             geom_bar(stat = "identity", aes(fill = Science.Dif)) +
+             coord_flip() +
+             theme_gray() +
+             geom_hline(yintercept = mean(pisa2015$Science.Dif),               size = 1.5, color = "red") +
+             scale_fill_gradient(name = "% nível de diferença") +
+  labs(title = "Homens são melhores em ciências?", x = "", y = "% diferença a partir das mulheres")
+```
+
+3. Gráficos de Correlação
+
+Coeficientes de correlação são usados para descrever o relacionamento entre variáveis quantitativas. O sinal $\pm$ indica a direção do relacionamento (positivo ou inverso), e a magnitude indica a força do relacionamento (indo de 0 para nenhuma relação e 1 para um perfeito relacionamento de predicabilidade). Neste estudo estamos apenas estudando a relação ou não entre as variáveis quantitativas (notas dos homens e mulheres nos testes aplicados no Pisa2015)
+Para montar o gráfico de correlação, vamos primeiro calcular a correlação entre as variáveis numéricas, separando fazendo um subset do data frame **pisa2015**, através, dos seguintes comandos.
+
+```{r input-correlation, echo=FALSE}
+
+col_relevantes <- c("Country.Name", "Maths.F", "Maths.M", "Reading.F", "Reading.M", "Science.F", "Science.M")
+
+pisa_df <- pisa2015 %>%
+            select(col_relevantes)
+
+corr_df <- cor(pisa_df[,-1])
+corr_df
+```
+
+Nós agora podemos calcular o **p-value** para verificar se a correlação é significante.
+
+```{r p-value-correlation, echo=FALSE}
+
+
+corr_matrix <- rcorr(as.matrix(corr_df[,-1]))
+corr_matrix
+```
+
+Quanto menor for o **p-value**, mais significativo é a correlação. O nosso objetivo aqui é começar a entender o uso dessa função para o cálculo de correlação entre variáveis no R. Para este dataset, era de se esperar que as variáveis fossem correlacionadas.
+
+```{r cor-test}
+corr.test(pisa_df[,-1], use = "complete")
+```
+
+
+Para plotar esse resultado vamos usar o pacote **corrplot**.
+
+```{r corrplot, echo=FALSE, fig.align="center", fig.cap='gráfico de correlação' , out.height="80%", out.width="80%"}
+
+
+cor_plot <- corrplot(corr_df, type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+cor_plot
+```
+
+Podemos interpretar esse gráfico da seguinte maneira, quanto mais forte fica a cor e maior o tamanho das bolas, maior é a correlação. Este gráfico é um resultado visual, do que já havíamos visto na matrix de correlação.
